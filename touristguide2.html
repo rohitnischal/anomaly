@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>Smart Tourist Safety Dashboard with Legal Icons</title>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;700&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="https://unpkg.com/leaflet/dist/leaflet.css" />
+<style>
+  body {
+    font-family: "Roboto", sans-serif;
+    margin: 0;
+    background: #f4f6f8;
+  }
+  header {
+    background: #1f618d;
+    color: white;
+    padding: 20px 10px;
+    text-align: center;
+  }
+  h1 {
+    margin: 0;
+    font-size: 2em;
+  }
+  .container {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 20px;
+    padding: 20px 10px;
+    justify-content: center;
+  }
+  .card {
+    background: white;
+    border-radius: 10px;
+    padding: 20px;
+    flex: 1 1 350px;
+    max-width: 450px;
+    min-width: 280px;
+    box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+  }
+  #map {
+    height: 360px;
+    border-radius: 10px;
+    margin-top: 10px;
+    width: 100%;
+  }
+  button {
+    padding: 8px 18px;
+    margin: 10px 6px 0 0;
+    background: #1f618d;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+  }
+  button:hover {
+    background: #154360;
+  }
+  .sos {
+    background: #c0392b !important;
+  }
+  .sos:hover {
+    background: #922b21 !important;
+  }
+  label {
+    display: block;
+    margin: 10px 0 4px 0;
+  }
+  input[type=email],
+  input[type=text] {
+    width: calc(100% - 24px);
+    padding: 6px 10px;
+    border-radius: 5px;
+    border: 1px solid #ccc;
+  }
+  #activityStatus {
+    font-weight: 600;
+    margin-bottom: 10px;
+  }
+  .alert,
+  .success {
+    font-weight: 600;
+    padding: 8px 10px;
+    border-radius: 6px;
+    margin-top: 10px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .alert {
+    background: #ffdddd;
+    color: #b30000;
+    border: 1px solid #ff8888;
+  }
+  .success {
+    background: #eaffea;
+    color: #1a8b1a;
+    border: 1px solid #88ff88;
+  }
+  .icon {
+    width: 24px;
+    height: 24px;
+    margin-right: 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  th,
+  td {
+    border: 1px solid #ddd;
+    padding: 8px;
+    text-align: center;
+  }
+  th {
+    background: #1f618d;
+    color: white;
+  }
+  ul#trustList {
+    margin-top: 8px;
+    padding-left: 20px;
+  }
+  @media (max-width: 900px) {
+    .container {
+      flex-direction: column;
+      align-items: center;
+    }
+    .card {
+      max-width: 90vw;
+    }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>Smart Tourist Safety Dashboard</h1>
+  <p>Real-Time Risk Detection with Visual Alerts & Trusted Contacts</p>
+</header>
+<div class="container">
+  <div class="card" id="statusCard">
+    <h2>Safety Status</h2>
+    <div id="activityStatus">Activity: Detecting...</div>
+    <div id="locationInfo">Waiting for location permission...</div>
+    <button onclick="checkSafety()">Check Safety</button>
+    <button class="sos" onclick="sendSOS()">🚨 SOS</button>
+    <button onclick="checkInSafe()">✔️ I am Safe</button>
+    <div id="sensorResult"></div>
+    <label for="languagePhrase">Emergency Phrase (show or play):</label>
+    <input type="text" id="languagePhrase" readonly value="Help me, I am lost!" />
+    <form id="trustForm" onsubmit="addTrusted(event)">
+      <label for="trustInput">Trusted Contact Email:</label>
+      <input id="trustInput" type="email" placeholder="Enter email to notify" required />
+      <button type="submit">Add Contact</button>
+    </form>
+    <ul id="trustList"></ul>
+  </div>
+  <div class="card" id="mapCard">
+    <h2>Tourist Zone Map</h2>
+    <div id="map"></div>
+    <div style="display: flex; flex-wrap: wrap; justify-content: center; gap: 15px; margin-top: 10px;">
+      <div style="display: flex; align-items: center; gap: 5px">
+        <img class="icon" src="https://img.icons8.com/emoji/48/000000/red-circle-emoji.png" alt="You" />
+        <span style="color: #d22">You</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 5px">
+        <img class="icon" src="https://img.icons8.com/color/48/000000/ok--v1.png" alt="Safe" />
+        <span style="color: #23b723">Safe</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 5px">
+        <img class="icon" src="https://img.icons8.com/color/48/000000/warning-shield.png" alt="Moderate" />
+        <span style="color: #ebb900">Moderate</span>
+      </div>
+      <div style="display: flex; align-items: center; gap: 5px">
+        <img class="icon" src="https://img.icons8.com/emoji/48/000000/orange-circle-emoji.png" alt="High" />
+        <span style="color: #ff6a1a">High</span>
+      </div>
+    </div>
+    <div class="zone-desc" id="zoneInfo"></div>
+  </div>
+  <div class="card" id="alertCard">
+    <h2>Alert / Check-in History</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>ID</th>
+          <th>Type</th>
+          <th>Time</th>
+          <th>Icon</th>
+        </tr>
+      </thead>
+      <tbody id="alertTable"></tbody>
+    </table>
+  </div>
+</div>
+<script src="https://unpkg.com/leaflet/dist/leaflet.js"></script>
+<script>
+  const plannedRoute = [
+    [28.614, 77.208],
+    [28.614, 77.215],
+    [28.62, 77.215],
+    [28.62, 77.208]
+  ];
+  const touristID = Math.floor(Math.random() * 9000 + 1000);
+  const zoneDescriptions = {
+    Safe: "Well-patrolled and tourist-friendly. Low risk.",
+    "Moderate Risk": "Popular but be alert. Guard valuables.",
+    "High Risk": "Extra caution! Avoid after dark or alone."
+  };
+  const anomalyIcons = {
+    "Left main tourist route": "https://img.icons8.com/color/48/000000/navigation-map.png",
+    "Very crowded area": "https://img.icons8.com/color/48/000000/crowd.png",
+    "In High Risk Zone": "https://img.icons8.com/color/48/000000/high-risk.png",
+    "Moderate Risk Zone Alert": "https://img.icons8.com/color/48/000000/warning-shield.png",
+    "Check-in: I am safe!": "https://img.icons8.com/flat_round/48/000000/ok.png",
+    SOS: "https://img.icons8.com/flat_round/48/000000/alarm.png"
+  };
+  const map = L.map("map", { zoomControl: false }).setView([28.6139, 77.209], 14);
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png").addTo(map);
+  const safeZone = L.polygon(
+    [
+      [28.615, 77.205],
+      [28.615, 77.215],
+      [28.625, 77.215],
+      [28.625, 77.205]
+    ],
+    { color: "green", fillColor: "green", fillOpacity: 0.18 }
+  )
+    .addTo(map)
+    .bindPopup("Safe Zone");
+  const moderateZone = L.polygon(
+    [
+      [28.61, 77.2],
+      [28.61, 77.205],
+      [28.615, 77.205],
+      [28.615, 77.2]
+    ],
+    { color: "gold", fillColor: "yellow", fillOpacity: 0.18 }
+  )
+    .addTo(map)
+    .bindPopup("Moderate Risk Zone");
+  const highZone = L.polygon(
+    [
+      [28.62, 77.215],
+      [28.62, 77.225],
+      [28.63, 77.225],
+      [28.63, 77.215]
+    ],
+    { color: "orange", fillColor: "orange", fillOpacity: 0.18 }
+  )
+    .addTo(map)
+    .bindPopup("High Risk Zone");
+  const routeLine = L.polyline(plannedRoute, {
+    color: "blue",
+    weight: 4,
+    opacity: 0.7,
+    dashArray: "10,10"
+  })
+    .addTo(map)
+    .bindPopup("Tourist Recommended Route");
+  let touristMarker = L.circleMarker([28.6139, 77.209], {
+    radius: 10,
+    color: "#d2222d",
+    fillColor: "#d2222d",
+    fillOpacity: 0.97
+  })
+    .addTo(map)
+    .bindPopup("You");
+  document.getElementById("zoneInfo").textContent =
+    "Zone info: Green = safest, Yellow = be alert, Orange = highest risk.";
+  let trustedContacts = [],
+    lastZone = "Unknown",
+    timeInZone = 0,
+    prevLocation = null;
+  const alertTable = document.getElementById("alertTable"),
+    trustList = document.getElementById("trustList");
+  function addTrusted(e) {
+    e.preventDefault();
+    const input = document.getElementById("trustInput");
+    const val = input.value.trim().toLowerCase();
+    if (!val) return alert("Please enter an email.");
+    if (trustedContacts.includes(val)) {
+      alert("Contact already added.");
+      input.value = "";
+      return;
+    }
+    if (trustedContacts.length >= 5) {
+      alert("Maximum 5 trusted contacts allowed.");
+      return;
+    }
+    trustedContacts.push(val);
+    const li = document.createElement("li");
+    li.textContent = val;
+    trustList.appendChild(li);
+    input.value = "";
+  }
+  function detectZone(loc) {
+    if (highZone.getBounds().contains(loc)) return "High Risk";
+    if (moderateZone.getBounds().contains(loc)) return "Moderate Risk";
+    if (safeZone.getBounds().contains(loc)) return "Safe";
+    return "Unknown";
+  }
+  function checkRouteDeviation(loc) {
+    return !L.polygon(plannedRoute).getBounds().contains(loc);
+  }
+  function getCrowdDensity(loc) {
+    if (highZone.getBounds().contains(loc)) return 150;
+    if (moderateZone.getBounds().contains(loc)) return 60;
+    if (safeZone.getBounds().contains(loc)) return 22;
+    return 10;
+  }
+  function updateActivity() {
+    const loc = touristMarker.getLatLng();
+    if (!prevLocation) {
+      prevLocation = loc;
+      document.getElementById("activityStatus").textContent =
+        "Activity: Detecting...";
+      return;
+    }
+    const moved = map.distance([prevLocation.lat, prevLocation.lng], [loc.lat, loc.lng]);
+    document.getElementById("activityStatus").textContent =
+      moved > 10 ? "Activity: Walking/Moving" : "Activity: Stationary";
+    prevLocation = loc;
+  }
+  function showLocationInfo(lat, lng, acc) {
+    document.getElementById(
+      "locationInfo"
+    ).innerHTML = `<div class="success"><img src="https://img.icons8.com/color/24/000000/marker.png" class="icon" alt="loc icon"/> Latitude: ${lat.toFixed(5)}, Longitude: ${lng.toFixed(5)}, Accuracy: ±${acc}m</div>`;
+  }
+  let geoWatchID = null;
+  function startLocationWatch() {
+    if (!navigator.geolocation) {
+      document.getElementById("locationInfo").innerHTML =
+        `<div class="alert">Geolocation not supported by your browser.</div>`;
+      return;
+    }
+    if (geoWatchID !== null) return;
+    geoWatchID = navigator.geolocation.watchPosition(
+      (pos) => {
+        const { latitude, longitude, accuracy } = pos.coords;
+        touristMarker.setLatLng([latitude, longitude]);
+        map.setView([latitude, longitude], map.getZoom());
+        showLocationInfo(latitude, longitude, accuracy);
+        updateZoneInfo();
+        checkSafety();
+        updateActivity();
+      },
+      (err) => {
+        document.getElementById(
+          "locationInfo"
+        ).innerHTML = `<div class="alert">Error getting location: ${err.message}</div>`;
+      },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    );
+  }
+  function updateZoneInfo() {
+    let loc = touristMarker.getLatLng();
+    let zone = detectZone(loc);
+    document.getElementById("zoneInfo").textContent =
+      zone === "Unknown"
+        ? "Zone: Outside monitored safety areas."
+        : `Zone: ${zone} - ${zoneDescriptions[zone] || ""}`;
+  }
+  function checkSafety() {
+    let loc = touristMarker.getLatLng();
+    let zone = detectZone(loc);
+    let anomalies = [];
+    if (checkRouteDeviation(loc)) anomalies.push("Left main tourist route");
+    if (getCrowdDensity(loc) > 100) anomalies.push("Very crowded area");
+    if (zone === "High Risk") {
+      if (lastZone === "High Risk") timeInZone++;
+      else timeInZone = 1;
+      if (timeInZone >= 1) anomalies.push("In High Risk Zone");
+    } else if (zone === "Moderate Risk") {
+      if (lastZone === "Moderate Risk") timeInZone++;
+      else timeInZone = 1;
+      if (timeInZone >= 2) anomalies.push("Moderate Risk Zone Alert");
+    } else timeInZone = 0;
+    lastZone = zone;
+    const sr = document.getElementById("sensorResult");
+    if (anomalies.length > 0) {
+      let html =
+        '<div class="alert" style="flex-wrap:wrap;display:flex;gap:10px;">';
+      anomalies.forEach((a) => {
+        let iconUrl = anomalyIcons[a] || anomalyIcons.SOS;
+        html += `<div style="display:flex;align-items:center;gap:6px;"><img src="${iconUrl}" alt="alert icon" class="icon"/>${a}</div>`;
+        const newRow = alertTable.insertRow(0);
+        newRow.insertCell(0).textContent = touristID;
+        newRow.insertCell(1).textContent = a;
+        newRow.insertCell(2).textContent = new Date().toLocaleTimeString();
+        newRow.insertCell(3).innerHTML = `<img src="${iconUrl}" alt="icon" class="icon"/>`;
+      });
+      html += "</div>";
+      sr.innerHTML = html;
+      if (trustedContacts.length > 0)
+        alert(`Alert sent to trusted contacts: ${trustedContacts.join(", ")}`);
+    } else {
+      let iconUrl = anomalyIcons["Check-in: I am safe!"];
+      sr.innerHTML = `<div class="success" style="display:flex;align-items:center;gap:8px;"><img src="${iconUrl}" alt="safe icon" class="icon"/>✅ Current Zone: ${zone}</div>`;
+    }
+    if (navigator.getBattery) {
+      navigator.getBattery().then((bat) => {
+        if (bat.level < 0.15)
+          alert("⚠️ Battery very low! Charge your device for safety alerts.");
+      });
+    }
+  }
+  function sendSOS() {
+    let iconUrl = anomalyIcons.SOS;
+    alert(
+      `🚨 SOS sent to: ${
+        trustedContacts.length > 0 ? trustedContacts.join(", ") : "local responders"
+      }`
+    );
+    const newRow = alertTable.insertRow(0);
+    newRow.insertCell(0).textContent = touristID;
+    newRow.insertCell(1).textContent = "SOS sent";
+    newRow.insertCell(2).textContent = new Date().toLocaleTimeString();
+    newRow.insertCell(3).innerHTML = `<img src="${iconUrl}" alt="sos icon" class="icon"/>`;
+  }
+  function checkInSafe() {
+    let msg = "Check-in: I am safe!";
+    let iconUrl = anomalyIcons[msg];
+    const newRow = alertTable.insertRow(0);
+    newRow.insertCell(0).textContent = touristID;
+    newRow.insertCell(1).textContent = msg;
+    newRow.insertCell(2).textContent = new Date().toLocaleTimeString();
+    newRow.insertCell(3).innerHTML = `<img src="${iconUrl}" alt="safe icon" class="icon"/>`;
+    if (trustedContacts.length > 0)
+      alert(`Check-in status sent to trusted contacts: ${trustedContacts.join(", ")}`);
+  }
+  startLocationWatch();
+  window.checkSafety = checkSafety;
+  window.sendSOS = sendSOS;
+  window.checkInSafe = checkInSafe;
+  window.addTrusted = addTrusted;
+</script>
+</body>
+</html>
+
+
+
+
